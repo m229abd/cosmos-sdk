@@ -51,5 +51,17 @@ func DirectSignBytes(bodyBytes, authInfoBytes []byte, chainID string, accnum uin
 		ChainId:       chainID,
 		AccountNumber: accnum,
 	}
+	fmt.Println("------------------------")
+	fmt.Println("------------------------")
+	fmt.Println("------------------------")
+	fmt.Println("------------------------")
+	fmt.Println("signDoc : ", signDoc)
+
+	marshalled, err := signDoc.Marshal()
+	fmt.Println("marshalled : ", marshalled)
+	fmt.Println("err : ", err)
+	fmt.Println("------------------------")
+	fmt.Println("------------------------")
+
 	return signDoc.Marshal()
 }
