@@ -6,9 +6,10 @@ import (
 	"context"
 	"io"
 
+	"slices"
+
 	reflectionv1 "cosmossdk.io/api/cosmos/reflection/v1"
 	"github.com/cosmos/gogoproto/proto"
-	"golang.org/x/exp/slices"
 	protov2 "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -57,8 +58,13 @@ func NewReflectionService() (*ReflectionService, error) {
 		return true
 	})
 
-	slices.SortFunc(fds.File, func(x, y *descriptorpb.FileDescriptorProto) bool {
-		return *x.Name < *y.Name
+	slices.SortFunc(fds.File, func(x, y *descriptorpb.FileDescriptorProto) int {
+		if *x.Name < *y.Name {
+			return -1
+		} else if *x.Name == *y.Name {
+			return 0
+		}
+		return 1
 	})
 
 	return &ReflectionService{files: fds}, nil
