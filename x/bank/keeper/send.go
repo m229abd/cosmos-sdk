@@ -209,19 +209,31 @@ func (k BaseSendKeeper) InputOutputCoins(ctx context.Context, input types.Input,
 // SendCoins transfers amt coins from a sending account to a receiving account.
 // An error is returned upon failure.
 func (k BaseSendKeeper) SendCoins(ctx context.Context, fromAddr, toAddr sdk.AccAddress, amt sdk.Coins) error {
-	toAddr, err := k.sendRestriction.apply(ctx, fromAddr, toAddr, amt)
+	// Checks-Effects-Interactions Pattern:
+	newBalances, err := k.checkSpendableCoins(ctx, fromAddr, amt)
 	if err != nil {
 		return err
 	}
 
-	err = k.subUnlockedCoins(ctx, fromAddr, amt)
-	if err != nil {
-		return err
+	toAddrs := make([]sdk.AccAddress, 0, len(amt))
+	for _, amount := range amt {
+		to, err := k.sendRestriction.apply(ctx, fromAddr, toAddr, sdk.NewCoins(amount))
+		if err != nil {
+			return err
+		}
+		toAddrs = append(toAddrs, to)
 	}
 
-	err = k.addCoins(ctx, toAddr, amt)
-	if err != nil {
-		return err
+	for _, bal := range newBalances {
+		k.setBalance(ctx, fromAddr, bal)
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(
+		types.NewCoinSpentEvent(fromAddr, amt),
+	)
+
+	for idx, amount := range amt {
+		k.addCoins(ctx, toAddrs[idx], sdk.NewCoins(amount))
 	}
 
 	// Create account if recipient does not exist.
@@ -236,7 +248,6 @@ func (k BaseSendKeeper) SendCoins(ctx context.Context, fromAddr, toAddr sdk.AccA
 
 	// bech32 encoding is expensive! Only do it once for fromAddr
 	fromAddrString := fromAddr.String()
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	sdkCtx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
 			types.EventTypeTransfer,
@@ -253,6 +264,41 @@ func (k BaseSendKeeper) SendCoins(ctx context.Context, fromAddr, toAddr sdk.AccA
 	return nil
 }
 
+func (k BaseSendKeeper) checkSpendableCoins(ctx context.Context, addr sdk.AccAddress, amt sdk.Coins) (newBalances []sdk.Coin, error) {
+	if !amt.IsValid() {
+		return nil, errorsmod.Wrap(sdkerrors.ErrInvalidCoins, amt.String())
+	}
+
+	lockedCoins := k.LockedCoins(ctx, addr)
+
+	newBalances = make([]sdk.Coin, 0, amt.Len())
+	for _, coin := range amt {
+		balance := k.GetBalance(ctx, addr, coin.Denom)
+		locked := sdk.NewCoin(coin.Denom, lockedCoins.AmountOf(coin.Denom))
+
+		spendable, hasNeg := sdk.Coins{balance}.SafeSub(locked)
+		if hasNeg {
+			return nil, errorsmod.Wrapf(sdkerrors.ErrInsufficientFunds,
+				"locked amount exceeds account balance funds: %s > %s", locked, balance)
+		}
+
+		if _, hasNeg := spendable.SafeSub(coin); hasNeg {
+			if len(spendable) == 0 {
+				spendable = sdk.Coins{sdk.NewCoin(coin.Denom, math.ZeroInt())}
+			}
+			return nil, errorsmod.Wrapf(
+				sdkerrors.ErrInsufficientFunds,
+				"spendable balance %s is smaller than %s",
+				spendable, coin,
+			)
+		}
+
+		newBalance := balance.Sub(coin)
+		newBalances = append(newBalances, newBalance)
+	}
+	return newBalances, nil
+}
+
 // subUnlockedCoins removes the unlocked amt coins of the given account. An error is
 // returned if the resulting balance is negative or the initial amount is invalid.
 // A coin_spent event is emitted after.
@@ -260,6 +306,14 @@ func (k BaseSendKeeper) subUnlockedCoins(ctx context.Context, addr sdk.AccAddres
 	if !amt.IsValid() {
 		return errorsmod.Wrap(sdkerrors.ErrInvalidCoins, amt.String())
 	}
+
+	newCoins, err := k.checkSpendableCoins(ctx, addr, amt)
+	if err != nil {
+		return err
+	}
+	//if err := k.setBalance(ctx, addr, newBalance); err != nil {
+	//	return err
+	//}
 
 	lockedCoins := k.LockedCoins(ctx, addr)
 
