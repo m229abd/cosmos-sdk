@@ -297,7 +297,6 @@ func readTxCommandFlags(clientCtx Context, flagSet *pflag.FlagSet) (Context, err
 			clientCtx.SignModeStr != flags.SignModeLegacyAminoJSON &&
 			clientCtx.SignModeStr != flags.SignModeTextual &&
 			!clientCtx.LedgerHasProtobuf {
-			fmt.Println("Default sign-mode 'direct' not supported by Ledger, using sign-mode 'amino-json'.")
 			clientCtx = clientCtx.WithSignModeStr(flags.SignModeLegacyAminoJSON)
 		}
 	}
