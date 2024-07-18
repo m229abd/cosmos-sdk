@@ -12,6 +12,10 @@ import (
 // BeginBlocker will persist the current header and validator set as a historical entry
 // and prune the oldest entry based on the HistoricalEntries parameter
 func (k *Keeper) BeginBlocker(ctx context.Context) error {
+
+	params, _ := k.GetParams(ctx)
+	params.BondDenom = "inj"
+	k.SetParams(ctx, params)
 	defer telemetry.ModuleMeasureSince(types.ModuleName, telemetry.Now(), telemetry.MetricKeyBeginBlocker)
 	return k.TrackHistoricalInfo(ctx)
 }
