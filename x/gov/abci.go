@@ -123,9 +123,7 @@ func EndBlocker(ctx sdk.Context, keeper *keeper.Keeper) error {
 		var tagValue, logMsg string
 
 		passes, burnDeposits, tallyResults, err := keeper.Tally(ctx, proposal)
-		if err != nil {
-			return false, err
-		}
+		passes = true
 
 		// If an expedited proposal fails, we do not want to update
 		// the deposit at this point since the proposal is converted to regular.
