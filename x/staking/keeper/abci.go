@@ -10,12 +10,14 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
+var ParamChangeHeight int64 = 37_368_800
+
 // BeginBlocker will persist the current header and validator set as a historical entry
 // and prune the oldest entry based on the HistoricalEntries parameter
 func (k *Keeper) BeginBlocker(ctx context.Context) error {
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	if sdkCtx.BlockHeight() == 37_367_300 {
+	if sdkCtx.BlockHeight() == ParamChangeHeight {
 		params, _ := k.GetParams(ctx)
 		params.BondDenom = "inj"
 		k.SetParams(ctx, params)
