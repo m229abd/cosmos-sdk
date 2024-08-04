@@ -47,6 +47,7 @@ github.com/DataDog/zstd v1.5.5 h1:oWf5W7GtOLgp6bciQYDmhHHjdhYkALu6S/5Ni9ZgSvQ=
 github.com/DataDog/zstd v1.5.5/go.mod h1:g4AWEaM3yOg3HYfnJ3YIawPnVdXJh9QME85blwSAmyw=
 github.com/InjectiveLabs/cometbft v0.38.10-inj-1 h1:k4I22d5KcXEluYFSVfuSepkibyUesMD+UGOpBwqjXbo=
 github.com/InjectiveLabs/cometbft v0.38.10-inj-1/go.mod h1:jHPx9vQpWzPHEAiYI/7EDKaB1NXhK6o3SArrrY8ExKc=
+github.com/InjectiveLabs/cometbft v0.38.11-0.20240804102410-067b3bade176/go.mod h1:a9BkWMRMLIyp5Hb1Xf8qkPDeRD0jclE3j4xpVm3nF7M=
 github.com/InjectiveLabs/cosmos-sdk/store v1.1.1-0.20240522173845-46ef88f66790 h1:F4FYZR9rLg9igzxitFdLU5s7ZU9XS0wUB7DbkBOVXc8=
 github.com/InjectiveLabs/cosmos-sdk/store v1.1.1-0.20240522173845-46ef88f66790/go.mod h1:ZW4eIE98wivInyQyhxU2nHqEielc/iZAcr41qNyWSrw=
 github.com/InjectiveLabs/metrics v0.0.10 h1:BoOwXnCtRRIPmq06jcI20pXZYE758eusaCI5jDOoN4U=
