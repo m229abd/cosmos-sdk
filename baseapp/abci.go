@@ -347,22 +347,67 @@ func (app *BaseApp) ApplySnapshotChunk(req *abci.ApplySnapshotChunkRequest) (*ab
 // the ResponseCheckTx will contain relevant gas execution context.
 func (app *BaseApp) CheckTx(req *abci.CheckTxRequest) (*abci.CheckTxResponse, error) {
 	var mode execMode
+	startTime := time.Now().UTC()
 
+	// Log the receipt of a transaction check request
+	app.logger.Error("CRITICAL: Received CheckTx request",
+		"timestamp", startTime.Unix(),
+		"txBytes", fmt.Sprintf("%X", req.Tx),
+		"type", req.Type,
+		"length", len(req.Tx), // Length of transaction bytes
+	)
+
+	// Determine execution mode based on the request type
 	switch {
 	case req.Type == abci.CHECK_TX_TYPE_CHECK:
 		mode = execModeCheck
-
 	case req.Type == abci.CHECK_TX_TYPE_RECHECK:
 		mode = execModeReCheck
-
 	default:
+		app.logger.Error("CRITICAL: Unknown CheckTx type",
+			"timestamp", time.Now().UTC().Unix(),
+			"type", req.Type,
+		)
 		return nil, fmt.Errorf("unknown RequestCheckTx type: %s", req.Type)
 	}
 
+	// Log the start of transaction validation
+	app.logger.Error("CRITICAL: Starting transaction validation",
+		"timestamp", time.Now().UTC().Unix(),
+		"mode", mode,
+	)
+
+	// Run the transaction through the AnteHandler and validate it
 	gInfo, result, anteEvents, err := app.runTx(mode, req.Tx)
+
+	// Record transaction processing duration
+	duration := time.Since(startTime)
+
 	if err != nil {
+		// Log transaction failure
+		app.logger.Error("CRITICAL: Transaction validation failed",
+			"timestamp", time.Now().UTC().Unix(),
+			"error", err.Error(),
+			"txHash", calculateHash(req.Tx),
+			"gasWanted", gInfo.GasWanted,
+			"gasUsed", gInfo.GasUsed,
+			"durationMs", duration.Milliseconds(),
+			"events", anteEvents,
+		)
 		return sdkerrors.ResponseCheckTxWithEvents(err, gInfo.GasWanted, gInfo.GasUsed, anteEvents, app.trace), nil
 	}
+
+	// Log successful transaction validation
+	app.logger.Error("CRITICAL: Transaction validation successful",
+		"timestamp", time.Now().UTC().Unix(),
+		"txHash", calculateHash(req.Tx),
+		"gasWanted", gInfo.GasWanted,
+		"gasUsed", gInfo.GasUsed,
+		"durationMs", duration.Milliseconds(),
+		"resultLog", result.Log,
+		"resultData", fmt.Sprintf("%X", result.Data),
+		"events", result.Events,
+	)
 
 	return &abci.CheckTxResponse{
 		GasWanted: int64(gInfo.GasWanted), // TODO: Should type accept unsigned ints?
@@ -372,6 +417,12 @@ func (app *BaseApp) CheckTx(req *abci.CheckTxRequest) (*abci.CheckTxResponse, er
 		Events:    sdk.MarkEventsToIndex(result.Events, app.indexEvents),
 	}, nil
 }
+
+// calculateHash computes a hash for the transaction bytes for logging purposes
+func calculateHash(tx []byte) string {
+	return fmt.Sprintf("%X", sdk.TxHash(tx))
+}
+
 
 // PrepareProposal implements the PrepareProposal ABCI method and returns a
 // ResponsePrepareProposal object to the client. The PrepareProposal method is
