@@ -335,33 +335,64 @@ func (app *BaseApp) ApplySnapshotChunk(req *abci.RequestApplySnapshotChunk) (*ab
 // internal CheckTx state if the AnteHandler passes. Otherwise, the ResponseCheckTx
 // will contain relevant error information. Regardless of tx execution outcome,
 // the ResponseCheckTx will contain relevant gas execution context.
+// CheckTx implements the ABCI interface and executes a tx in CheckTx mode.
 func (app *BaseApp) CheckTx(req *abci.RequestCheckTx) (*abci.ResponseCheckTx, error) {
-	var mode execMode
+    // Log the initial request with timestamp
+    app.logger.Info("CheckTx called",
+        "timestamp", time.Now().Format(time.RFC3339),
+        "txType", req.Type,
+        "txLength", len(req.Tx),
+        "tx", fmt.Sprintf("%X", req.Tx),
+    )
 
-	switch {
-	case req.Type == abci.CheckTxType_New:
-		mode = execModeCheck
+    var mode execMode
 
-	case req.Type == abci.CheckTxType_Recheck:
-		mode = execModeReCheck
+    // Determine the mode based on the request type
+    switch {
+    case req.Type == abci.CheckTxType_New:
+        mode = execModeCheck
+        app.logger.Info("New transaction detected", "timestamp", time.Now().Format(time.RFC3339))
+    case req.Type == abci.CheckTxType_Recheck:
+        mode = execModeReCheck
+        app.logger.Info("Recheck transaction detected", "timestamp", time.Now().Format(time.RFC3339))
+    default:
+        errMsg := fmt.Sprintf("unknown RequestCheckTx type: %s", req.Type)
+        app.logger.Error(errMsg, "timestamp", time.Now().Format(time.RFC3339))
+        return nil, fmt.Errorf(errMsg)
+    }
 
-	default:
-		return nil, fmt.Errorf("unknown RequestCheckTx type: %s", req.Type)
-	}
+    // Log the mode and time of execution
+    app.logger.Info("Executing transaction in mode", "mode", mode, "timestamp", time.Now().Format(time.RFC3339))
 
-	gInfo, result, anteEvents, err := app.runTx(mode, req.Tx)
-	if err != nil {
-		return sdkerrors.ResponseCheckTxWithEvents(err, gInfo.GasWanted, gInfo.GasUsed, anteEvents, app.trace), nil
-	}
+    // Execute the transaction and log the gas info and errors
+    gInfo, result, anteEvents, err := app.runTx(mode, req.Tx)
+    if err != nil {
+        app.logger.Error("Transaction failed",
+            "timestamp", time.Now().Format(time.RFC3339),
+            "error", err.Error(),
+            "gasWanted", gInfo.GasWanted,
+            "gasUsed", gInfo.GasUsed,
+        )
+        return sdkerrors.ResponseCheckTxWithEvents(err, gInfo.GasWanted, gInfo.GasUsed, anteEvents, app.trace), nil
+    }
 
-	return &abci.ResponseCheckTx{
-		GasWanted: int64(gInfo.GasWanted), // TODO: Should type accept unsigned ints?
-		GasUsed:   int64(gInfo.GasUsed),   // TODO: Should type accept unsigned ints?
-		Log:       result.Log,
-		Data:      result.Data,
-		Events:    sdk.MarkEventsToIndex(result.Events, app.indexEvents),
-	}, nil
+    // Log success details
+    app.logger.Info("Transaction passed CheckTx",
+        "timestamp", time.Now().Format(time.RFC3339),
+        "gasWanted", gInfo.GasWanted,
+        "gasUsed", gInfo.GasUsed,
+        "log", result.Log,
+    )
+
+    return &abci.ResponseCheckTx{
+        GasWanted: int64(gInfo.GasWanted), // TODO: Should type accept unsigned ints?
+        GasUsed:   int64(gInfo.GasUsed),   // TODO: Should type accept unsigned ints?
+        Log:       result.Log,
+        Data:      result.Data,
+        Events:    sdk.MarkEventsToIndex(result.Events, app.indexEvents),
+    }, nil
 }
+
 
 // PrepareProposal implements the PrepareProposal ABCI method and returns a
 // ResponsePrepareProposal object to the client. The PrepareProposal method is
